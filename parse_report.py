@@ -4,6 +4,7 @@ import csv
 import openpyxl
 
 REQUIRED_FIELDS = ["CVEID", "KBID", "Severity", "AffectedPackage"]
+ALLOWED_SEVERITY = {"High", "Critical"}
 
 def detect_type(file_path):
     ext = os.path.splitext(file_path)[1].lower()
@@ -22,13 +23,19 @@ def parse_excel(file_path):
     rows = list(sheet.iter_rows(values_only=True))
     headers = [str(h).strip() for h in rows[0]]
     validate_fields(headers)
-    return [dict(zip(headers, r)) for r in rows[1:] if any(r)]
+    data = []
+    for row in rows[1:]:
+        if row and any(row):
+            entry = dict(zip(headers, row))
+            if str(entry.get("Severity", "")).strip() in ALLOWED_SEVERITY:
+                data.append(entry)
+    return data
 
 def parse_csv(file_path):
     with open(file_path, newline='', encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         validate_fields(reader.fieldnames)
-        return list(reader)
+        return [row for row in reader if str(row.get("Severity", "")).strip() in ALLOWED_SEVERITY]
 
 def parse_json(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
@@ -36,7 +43,7 @@ def parse_json(file_path):
         if isinstance(data, dict):
             data = [data]
         validate_fields(data[0].keys())
-        return data
+        return [d for d in data if str(d.get("Severity", "")).strip() in ALLOWED_SEVERITY]
 
 def parse_report(file_path):
     ext = detect_type(file_path)
